@@ -25,7 +25,7 @@ func GetByShort(shortUrl string) (models.Url, error) {
 
 	url := models.Url{}
 
-	db.Where("Short = ?", shortUrl).First(&url)
+	db.Model(models.Url{Short: shortUrl}).First(&url)
 	url.Transitions++
 
 	db.Save(&url)
