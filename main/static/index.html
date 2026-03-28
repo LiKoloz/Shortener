@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сервис сокращения ссылок</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            background: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        h2 {
+            margin-top: 0;
+            color: #555;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: #f1f1f1;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .error {
+            color: #d9534f;
+        }
+        .field-note {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: -0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        pre {
+            background: #e9ecef;
+            padding: 0.5rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Сервис сокращения ссылок</h1>
+
+    <div class="card">
+        <h2>Создать короткую ссылку</h2>
+        <label for="longUrl">Длинный URL:</label>
+        <input type="url" id="longUrl" placeholder="https://example.com/очень/длинный/адрес" required>
+        <label for="customShort">Желаемый короткий код (необязательно):</label>
+        <input type="text" id="customShort" placeholder="my-custom-alias">
+        <div class="field-note">Оставьте пустым для автоматической генерации</div>
+        <button id="shortenBtn">Сократить</button>
+        <div id="shortenResult" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Перейти по короткой ссылке</h2>
+        <label for="shortCode">Короткий код:</label>
+        <input type="text" id="shortCode" placeholder="abc123">
+        <button id="redirectBtn">Перейти</button>
+        <div id="redirectResult" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h2>Аналитика по короткой ссылке</h2>
+        <label for="analyticsCode">Короткий код:</label>
+        <input type="text" id="analyticsCode" placeholder="abc123">
+        <button id="analyticsBtn">Показать аналитику</button>
+        <div id="analyticsResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = ''; // если нужно, укажите базовый URL
+
+        // Создание короткой ссылки (сервер возвращает пустой ответ при успехе)
+        document.getElementById('shortenBtn').addEventListener('click', async () => {
+            const longUrl = document.getElementById('longUrl').value.trim();
+            const customShort = document.getElementById('customShort').value.trim();
+            const resultDiv = document.getElementById('shortenResult');
+
+            if (!longUrl) {
+                resultDiv.innerHTML = '<span class="error">Пожалуйста, введите URL</span>';
+                return;
+            }
+
+            const body = { long: longUrl };
+            if (customShort) {
+                body.short = customShort;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/shorten`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (!response.ok) {
+                    let errorMsg = `Ошибка сервера: ${response.status}`;
+                    const errorData = await response.text();
+                    if (errorData) errorMsg += ` - ${errorData}`;
+                    throw new Error(errorMsg);
+                }
+
+                // Сервер возвращает пустое тело при успехе
+                resultDiv.innerHTML = `<span style="color: green;">✅ Ссылка успешно создана!</span><br>
+                                        Короткий код: ${customShort || 'сгенерирован автоматически'}<br>
+                                        <a href="${API_BASE}/s/${customShort}" target="_blank">${API_BASE}/s/${customShort}</a>`;
+                document.getElementById('customShort').value = '';
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">Ошибка: ${error.message}</span>`;
+            }
+        });
+
+        // Переход по короткой ссылке — сервер возвращает длинный URL текстом
+        document.getElementById('redirectBtn').addEventListener('click', async () => {
+            const shortCode = document.getElementById('shortCode').value.trim();
+            const resultDiv = document.getElementById('redirectResult');
+
+            if (!shortCode) {
+                resultDiv.innerHTML = '<span class="error">Введите короткий код</span>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/s/${shortCode}`);
+
+                if (!response.ok) {
+                    let errorMsg = `Ошибка: ${response.status}`;
+                    const errorData = await response.text();
+                    if (errorData) errorMsg += ` - ${errorData}`;
+                    throw new Error(errorMsg);
+                }
+
+                const longUrl = await response.text(); // сервер возвращает длинный URL как строку
+                resultDiv.innerHTML = `Перенаправление на <a href="${longUrl}" target="_blank">${longUrl}</a>...`;
+                // Выполняем редирект через 1 секунду
+                setTimeout(() => {
+                    window.location.href = longUrl;
+                }, 1000);
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">Ошибка: ${error.message}</span>`;
+            }
+        });
+
+        // Получение аналитики (сервер возвращает JSON объекта Url)
+        document.getElementById('analyticsBtn').addEventListener('click', async () => {
+            const shortCode = document.getElementById('analyticsCode').value.trim();
+            const resultDiv = document.getElementById('analyticsResult');
+
+            if (!shortCode) {
+                resultDiv.innerHTML = '<span class="error">Введите короткий код</span>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/analytics/${shortCode}`);
+
+                if (!response.ok) {
+                    let errorMsg = `Ошибка: ${response.status}`;
+                    const errorData = await response.text();
+                    if (errorData) errorMsg += ` - ${errorData}`;
+                    throw new Error(errorMsg);
+                }
+
+                const data = await response.json(); // { id, long, short, transitions }
+                resultDiv.innerHTML = `
+                    <strong>Короткая ссылка:</strong> ${data.short}<br>
+                    <strong>Оригинальный URL:</strong> ${data.long}<br>
+                    <strong>Количество переходов:</strong> ${data.transitions}<br>
+                    <strong>ID в БД:</strong> ${data.id}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">Ошибка: ${error.message}</span>`;
+            }
+        });
+    </script>
+</body>
+</html>
